@@ -62,6 +62,7 @@ async fn main() -> Result<()> {
     // }
 }
 
+#[tracing::instrument]
 async fn handle_discord_event(
     event: Event,
     state: Arc<State>,
@@ -74,6 +75,10 @@ async fn handle_discord_event(
     match event {
         Event::MessageCreate(msg) if msg.thread.is_none() => {
             tracing::trace!(msg = msg.id.get(), "Message create event");
+            if msg.author.bot {
+                tracing::info!(msg = msg.id.get(), author = %msg.author.name, "Ignoring bot messages");
+                return Ok(());
+            }
             if let Some(issue_nr) = state.get_issue(msg.channel_id).await? {
                 let commentstr = format!(
                     "New comment from @{}\n\n{}\n\n[Link](https://discord.com/channels/{}/{}/{})",
@@ -84,7 +89,7 @@ async fn handle_discord_event(
                     msg.id
                 );
                 github
-                    .issues(user, repo)
+                    .issues(&user, &repo)
                     .create_comment(issue_nr, commentstr)
                     .await?;
             }
@@ -125,9 +130,9 @@ async fn handle_discord_event(
                 .await?;
             let title = &msg.content[..30.min(msg.content.len())];
             let issue = github
-                .issues(user, repo)
+                .issues(&user, &repo)
                 .create(title)
-                .body(msg.content)
+                .body(&msg.content)
                 .labels(vec!["discord".into()])
                 .send()
                 .await?;
@@ -136,12 +141,17 @@ async fn handle_discord_event(
                 .create_thread_from_message(
                     rct.channel_id,
                     rct.message_id,
-                    &format!("Github issue {}", issue.number),
+                    &format!("Github issue {} - {}", issue.number, title),
                 )
                 .unwrap() // channel name between 1 and 100 character
                 .exec()
                 .await?
                 .model()
+                .await?;
+            
+            discord.create_message(thread.id())
+                .content(&format!("https://github.com/{user}/{repo}/issues/{}", issue.number))?
+                .exec()
                 .await?;
 
             state.add((thread.id(), issue.number as u64)).await?;
