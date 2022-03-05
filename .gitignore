@@ -1,0 +1,6 @@
+/target
+state.db
+state.db-shm
+state.db-wal
+.vscode
+.env
