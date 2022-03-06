@@ -11,7 +11,9 @@ Configuration can be passed via the `--config` command line argument (Default `c
 
 See [`example_config.toml`](example_config.toml) for an example.
 
-To enable webhooks create a webhook in github to `http://your.domain.tld:8080/webhook` with only `issue_comment` events.
+To enable webhooks create a webhook in github to `http://your.domain.tld:8080/webhook` with only the `issue_comment` events.
+
+If the bot has the permissions to remove reactions, it will remove reactions if the user did not have the permission to create an issue.
 
 ## TODOS:
 

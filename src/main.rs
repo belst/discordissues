@@ -8,7 +8,7 @@ use octocrab::Octocrab;
 use state::State;
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_gateway::Event;
-use twilight_http::Client;
+use twilight_http::{Client, request::channel::reaction::RequestReactionType};
 use twilight_model::{channel::ReactionType, id::{Id, marker::ChannelMarker}};
 use webserver::IssueCommentWebhook;
 
@@ -177,6 +177,20 @@ async fn handle_discord_event(
                 .await?
                 .model()
                 .await?;
+
+
+            let member = rct.member.as_ref().map(Result::Ok).unwrap_or(Err(anyhow::anyhow!("Only works in Guilds")))?;
+            if member.roles.iter().find(|r| config.check_permission(&format!("{user}/{repo}"), r.get())).is_none() {
+                tracing::info!(user = %member.user.name, channel = ?rct.channel_id, "Invalid Permissions to create issue");
+                let emoji = match &rct.emoji {
+                    ReactionType::Custom { id, name, ..} => RequestReactionType::Custom { id: *id, name: name.as_deref() },
+                    ReactionType::Unicode { ref name } => RequestReactionType::Unicode { name },
+                };
+                discord.delete_reaction(rct.channel_id, rct.message_id, &emoji, rct.user_id)
+                    .exec()
+                    .await?;
+                return Ok(());
+            }
 
             let title = &msg.content[..30.min(msg.content.len())];
             let issue = github
