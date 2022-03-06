@@ -1,14 +1,12 @@
 use anyhow::Result;
-use twilight_model::id::{
-    marker::ChannelMarker,
-    Id,
-};
+use twilight_model::id::{marker::ChannelMarker, Id};
 
 use sqlx::sqlite::SqlitePool;
 
 type ThreadId = Id<ChannelMarker>;
 type IssueNr = u64;
-type Mapping = (ThreadId, IssueNr);
+type Repo = String;
+type Mapping = (ThreadId, IssueNr, Repo);
 
 #[derive(Debug)]
 pub struct State {
@@ -18,14 +16,18 @@ pub struct State {
 impl State {
     pub async fn new(database_url: &str) -> Result<Self> {
         let pool = SqlitePool::connect(database_url).await?;
+        tracing::info!("Running Migrations");
+        sqlx::migrate!().run(&pool).await?;
+
         Ok(Self { pool })
     }
 
     pub async fn add(&self, mapping: Mapping) -> Result<()> {
-        let (thread_id, issue_nr) = (mapping.0.get() as i64, mapping.1 as i64);
+        let (thread_id, issue_nr, repo) = (mapping.0.get() as i64, mapping.1 as i64, mapping.2);
         sqlx::query!(
-            "insert into mapping (thread_id, issue_nr) values ($1, $2)",
+            "insert into mapping (thread_id, repo, issue_nr) values ($1, $2, $3)",
             thread_id,
+            repo,
             issue_nr,
         )
         .execute(&self.pool)
@@ -33,21 +35,24 @@ impl State {
 
         Ok(())
     }
-    pub async fn get_issue(&self, thrd: ThreadId) -> Result<Option<IssueNr>> {
+    pub async fn get_issue(&self, thrd: ThreadId) -> Result<Option<(IssueNr, Repo)>> {
         let thrd = thrd.get() as i64;
-        let issue_nr: Option<i64> =
-            sqlx::query_scalar!("select issue_nr from mapping where thread_id = $1", thrd,)
-                .fetch_optional(&self.pool)
-                .await?;
+        let issue = sqlx::query!(
+            "select issue_nr, repo from mapping where thread_id = $1",
+            thrd
+        )
+        .fetch_optional(&self.pool)
+        .await?;
 
-        Ok(issue_nr.map(|n| n as u64))
+        Ok(issue.map(|n| (n.issue_nr as u64, n.repo)))
     }
 
-    pub async fn get_thread(&self, issue_nr: IssueNr) -> Result<Option<ThreadId>> {
+    pub async fn get_thread(&self, issue_nr: IssueNr, repo: &str) -> Result<Option<ThreadId>> {
         let issue_nr = issue_nr as i64;
         let msg = sqlx::query!(
-            "select thread_id from mapping where issue_nr = $2",
+            "select thread_id from mapping where issue_nr = $1 and repo = $2",
             issue_nr,
+            repo
         )
         .fetch_optional(&self.pool)
         .await?;

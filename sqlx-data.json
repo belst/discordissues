@@ -1,0 +1,55 @@
+{
+  "db": "SQLite",
+  "9abb21a65448e426232ed256c37eb9a57f80c6ecb200b4325ab1ad1cbc289ced": {
+    "describe": {
+      "columns": [
+        {
+          "name": "thread_id",
+          "ordinal": 0,
+          "type_info": "Int64"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "select thread_id from mapping where issue_nr = $1 and repo = $2"
+  },
+  "dbaaf54e8da20af0059f65e96cce4f025fd3391b4ddb85b511c5b997fe4c897b": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 3
+      }
+    },
+    "query": "insert into mapping (thread_id, repo, issue_nr) values ($1, $2, $3)"
+  },
+  "e63bbca3ce138c07955b9d11e11cc4dae4032bfa982743a2d9228be8735521c1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "issue_nr",
+          "ordinal": 0,
+          "type_info": "Int64"
+        },
+        {
+          "name": "repo",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "select issue_nr, repo from mapping where thread_id = $1"
+  }
+}

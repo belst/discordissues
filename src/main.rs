@@ -9,12 +9,13 @@ use state::State;
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_gateway::Event;
 use twilight_http::Client;
-use twilight_model::{channel::ReactionType, id::Id};
+use twilight_model::{channel::ReactionType, id::{Id, marker::ChannelMarker}};
+use webserver::IssueCommentWebhook;
 
 mod config;
 mod discord;
-mod github;
 mod state;
+mod webserver;
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -24,8 +25,8 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing::trace!("Starting program");
     tracing_subscriber::fmt().init();
+    tracing::trace!("Starting program");
 
     let args = Args::parse();
 
@@ -41,30 +42,50 @@ async fn main() -> Result<()> {
 
     let discord = Arc::new(Client::new(config.discord_token().into()));
 
-    while let Some(e) = events.next().await {
+    let mut github_events = webserver::run(state.clone()).await?;
+
+    loop {
         let state = state.clone();
         let discord = discord.clone();
         let github = github.clone();
         let config = config.clone();
         let cache = cache.clone();
-        tokio::spawn(async move {
-            handle_discord_event(e, state, discord, cache, github, config).await
-        });
+
+        tokio::select! {
+            Some(event) = events.next() => {
+                tokio::spawn(async move {
+                    handle_discord_event(event, state, discord, cache, github, config).await
+                });
+            },
+            Some((thread_id, issue_comment)) = github_events.next() => {
+                tokio::spawn(async move {
+                    handle_github_event(discord, thread_id, issue_comment).await
+                });
+            }
+        }
     }
+}
+
+#[tracing::instrument]
+async fn handle_github_event(
+    discord: Arc<Client>,
+    thread_id: Id<ChannelMarker>,
+    comment: IssueCommentWebhook
+) -> Result<()> {
+
+    let msg = format!(
+        "New comment on Github from @{}\n\n{}\n\n{}",
+        comment.issue.user.login,
+        comment.comment.body.unwrap_or("".into()),
+        comment.comment.html_url
+    );
+
+    discord.create_message(thread_id)
+        .content(&msg)?
+        .exec()
+        .await?;
 
     Ok(())
-
-    // loop {
-    //     tokio::select! {
-    //         event = events.next() => {
-    //             if let Some(e) {
-    //                 handle_discord_event(e, state.clone())
-    //             } else {
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
 }
 
 #[tracing::instrument]
@@ -83,10 +104,10 @@ async fn handle_discord_event(
                 tracing::info!(msg = msg.id.get(), author = %msg.author.name, "Ignoring bot messages");
                 return Ok(());
             }
-            if let Some(issue_nr) = state.get_issue(msg.channel_id).await? {
-                let (user, repo) = match config
-                    .get_github_repo((msg.channel_id.get(), msg.guild_id.map(Id::get)))
-                    .and_then(|s| s.split_once('/').map(|(l, r)| (l.to_owned(), r.to_owned())))
+            if let Some((issue_nr, repo)) = state.get_issue(msg.channel_id).await? {
+                let (user, repo) = match repo
+                    .split_once('/')
+                    .map(|(l, r)| (l.to_owned(), r.to_owned()))
                 {
                     Some(repo) => repo,
                     None => {
@@ -124,9 +145,10 @@ async fn handle_discord_event(
                 .await?;
 
             if let Some(thread) = msg.thread {
-                if let Some(issue_id) = state.get_issue(thread.id()).await? {
+                if let Some((issue_id, repo)) = state.get_issue(thread.id()).await? {
                     tracing::info!(
                         issue_id,
+                        %repo,
                         thread_id = thread.id().get(),
                         channel_id = rct.channel_id.get(),
                         message_id = rct.message_id.get(),
@@ -186,7 +208,9 @@ async fn handle_discord_event(
                 .exec()
                 .await?;
 
-            state.add((thread.id(), issue.number as u64)).await?;
+            state
+                .add((thread.id(), issue.number as u64, format!("{user}/{repo}")))
+                .await?;
         }
         _ => {}
     }
