@@ -6,16 +6,13 @@ It also creates a thread and every message in the thread gets posted as a commen
 
 The other direction is planned but not yet implemented
 
-## Required ENV variables
+## Configuration
 
-- `DISCORD_TOKEN`: Your discord bot token
-- `DATABASE_URL`: Database url (only sqlite tested yet)
-- `GITHUB_TOKEN`: Bearer Token for your github bot account (machine user), needs `repo` scope
-- `GITHUB_REPO`: path to github repo where the issues should be created in the form `owner/repo`
+Configuration can be passed via the `--config` command line argument (Default `config.toml`)
 
+See [`example_config.toml`](example_config.toml) for an example
 
 ## TODOS:
 
-- Create mapping from `guild_id` to `repo`
 - Check ways to get new comments from github issues (webhooks? polling?)
 - What happens if you close/delete the issue/thread? Archive the thread when the issue gets closed?
