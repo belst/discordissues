@@ -11,14 +11,12 @@ use twilight_gateway::{
 };
 use twilight_model::gateway::Intents;
 
-pub async fn run() -> Result<(UnboundedReceiver<Event>, Arc<InMemoryCache>)> {
-    let token = std::env::var("DISCORD_TOKEN")?;
-
+pub async fn run(token: String) -> Result<(UnboundedReceiver<Event>, Arc<InMemoryCache>)> {
     let scheme = ShardScheme::Auto;
 
     let intents = Intents::GUILDS | Intents::GUILD_MESSAGES | Intents::GUILD_MESSAGE_REACTIONS;
 
-    let (cluster, mut events) = Cluster::builder(token.to_owned(), intents)
+    let (cluster, mut events) = Cluster::builder(token, intents)
         .shard_scheme(scheme)
         .build()
         .await?;
@@ -38,9 +36,8 @@ pub async fn run() -> Result<(UnboundedReceiver<Event>, Arc<InMemoryCache>)> {
             cache_prime.update(&event);
 
             let mut txprime = tx.clone();
-            match txprime.send(event).await {
-                Err(e) => tracing::error!(shard_id, "Error sending event to channel: {}", e),
-                _ => {}
+            if let Err(e) = txprime.send(event).await {
+                tracing::error!(shard_id, "Error sending event to channel: {}", e);
             }
         }
     });

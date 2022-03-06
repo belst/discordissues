@@ -4,3 +4,4 @@ state.db-shm
 state.db-wal
 .vscode
 .env
+config.toml

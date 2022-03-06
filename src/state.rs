@@ -1,6 +1,6 @@
 use anyhow::Result;
 use twilight_model::id::{
-    marker::{ChannelMarker, MessageMarker},
+    marker::ChannelMarker,
     Id,
 };
 
@@ -16,10 +16,8 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new() -> Result<Self> {
-        let pool =
-            SqlitePool::connect(&std::env::var("DATABASE_URL").unwrap_or("sqlite::memory:".into()))
-                .await?;
+    pub async fn new(database_url: &str) -> Result<Self> {
+        let pool = SqlitePool::connect(database_url).await?;
         Ok(Self { pool })
     }
 

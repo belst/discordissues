@@ -1,0 +1,7 @@
+database_url = "sqlite:state.db"
+discord_token = "TyPlB7gsd1wiLmkiesuZ.EJI9nvRlmTFMO8TI6QC.AcWrrm7ysVvcV2Jdc9wE"
+github_token = "ghp_rKZdenGpTRARNniG0MdWjpkWSSzmeygnJlxo"
+
+[mapping]
+"owner/repository" = { id = 898362774930728025, type = "Guild" }
+"owner/otherrepository" = { id = 767279711012531191, type = "Channel" }
