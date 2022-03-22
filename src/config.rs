@@ -17,7 +17,7 @@ enum Target {
 #[derive(Clone, Debug, Deserialize)]
 struct DiscordTarget {
     target: Target,
-    roles: Vec<u64>
+    roles: Vec<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,7 +68,10 @@ impl Config {
     }
 
     pub fn check_permission(&self, repo: &str, role_id: u64) -> bool {
-        self.mapping.get(repo).map(|m| m.roles.contains(&role_id)).unwrap_or(false)
+        self.mapping
+            .get(repo)
+            .map(|m| m.roles.contains(&role_id))
+            .unwrap_or(false)
     }
 
     pub fn discord_token(&self) -> &str {
