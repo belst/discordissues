@@ -20,6 +20,4 @@ If the bot has the permissions to remove reactions, it will remove reactions if 
 - What happens if you close/delete the issue/thread? Archive the thread when the issue gets closed?
 - more edgecases
 - webhooks configurable
-    - automatically create on startup if github token has permissions?
-    - enable/disable via config
-    - configurable socket bind for webserver
+    - Use app wide webhooks

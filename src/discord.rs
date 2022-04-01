@@ -14,7 +14,10 @@ use twilight_model::gateway::Intents;
 pub async fn run(token: String) -> Result<(UnboundedReceiver<Event>, Arc<InMemoryCache>)> {
     let scheme = ShardScheme::Auto;
 
-    let intents = Intents::GUILDS | Intents::GUILD_MESSAGES | Intents::GUILD_MESSAGE_REACTIONS;
+    let intents = Intents::GUILDS
+        | Intents::GUILD_MESSAGES
+        | Intents::GUILD_MESSAGE_REACTIONS
+        | Intents::MESSAGE_CONTENT;
 
     let (cluster, mut events) = Cluster::builder(token, intents)
         .shard_scheme(scheme)
@@ -33,6 +36,7 @@ pub async fn run(token: String) -> Result<(UnboundedReceiver<Event>, Arc<InMemor
     let (tx, rx) = mpsc::unbounded();
     tokio::spawn(async move {
         while let Some((shard_id, event)) = events.next().await {
+            tracing::trace!(shard_id, event = ?event, "Discord Event received");
             cache_prime.update(&event);
 
             let mut txprime = tx.clone();

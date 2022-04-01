@@ -5,3 +5,4 @@ state.db-wal
 .vscode
 .env
 config.toml
+*.pem

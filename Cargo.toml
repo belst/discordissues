@@ -8,14 +8,15 @@ edition = "2021"
 [dependencies]
 tracing = "0.1.31"
 anyhow = "1.0.55"
-twilight-cache-inmemory = "0.9.1"
-twilight-gateway = "0.9.1"
-twilight-http = "0.9.1"
-twilight-model = "0.9.2"
+twilight-cache-inmemory = "0.10.1"
+twilight-gateway = "0.10.1"
+twilight-http = "0.10.1"
+twilight-model = "0.10.1"
 futures = "0.3.21"
 toml = "0.5.8"
 serde_json = "1.0.79"
 actix-files = "0.6.0"
+jsonwebtoken = "7.2.0" # not latest version cause octocrab uses this
 
 [dependencies.actix-web]
 version = "4.0.1"

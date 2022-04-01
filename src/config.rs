@@ -1,7 +1,10 @@
 use anyhow::Result;
+use jsonwebtoken::EncodingKey;
+use octocrab::models::AppId;
 use serde::Deserialize;
 use std::{
     collections::HashMap,
+    path,
     sync::{
         atomic::{AtomicBool, Ordering},
         RwLock,
@@ -24,12 +27,16 @@ struct DiscordTarget {
 pub struct Config {
     discord_token: String,
     database_url: String,
-    github_token: String,
+    github_app_id: u64,
+    github_private_key: path::PathBuf,
     mapping: HashMap<String, DiscordTarget>,
     #[serde(skip, default)]
     mapping_rev: RwLock<HashMap<Target, String>>,
     #[serde(skip, default)]
     initialized: AtomicBool,
+    #[serde(skip, default)]
+    // not part of initialize cause it might fail
+    private_key_encoded: RwLock<Option<EncodingKey>>,
 }
 
 impl Config {
@@ -78,11 +85,47 @@ impl Config {
         &self.discord_token
     }
 
-    pub fn github_token(&self) -> &str {
-        &self.github_token
-    }
-
     pub fn database_url(&self) -> &str {
         &self.database_url
+    }
+
+    pub fn github_app_id(&self) -> AppId {
+        self.github_app_id.into()
+    }
+
+    fn load_private_key(&self) -> anyhow::Result<()> {
+        // all sync and no async cause only getting called once at init
+        use std::fs::File;
+        use std::io::Read;
+        let mut f = File::open(&self.github_private_key)?;
+        let mut buff = vec![];
+        f.read_to_end(&mut buff)?;
+        let mut lock = self
+            .private_key_encoded
+            .write()
+            .expect("Poison error on write RwLock");
+
+        *lock = Some(EncodingKey::from_rsa_pem(&buff)?);
+
+        Ok(())
+    }
+
+    pub fn github_private_key(&self) -> anyhow::Result<EncodingKey> {
+        let lock = self
+            .private_key_encoded
+            .read()
+            .expect("Poison error on read RwLock");
+        if lock.is_none() {
+            drop(lock); // need to drop read lock so we can write
+            self.load_private_key()?;
+        }
+
+        let lock = self
+            .private_key_encoded
+            .read()
+            .expect("Poison error on read RwLock");
+        let key = lock.as_ref();
+
+        Ok(key.unwrap().clone())
     }
 }
